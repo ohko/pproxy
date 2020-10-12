@@ -414,11 +414,17 @@ func (o *HTTPPProxy) checkAuth(uri *url.URL) (net.Conn, string, error) {
 				}
 			}
 
-			firstLine := strings.ReplaceAll(o.firstLine, uri.Scheme+"://"+uri.Host, "")
-			if _, err := nn.Write([]byte(firstLine + header)); err != nil {
-				o.PI.OnSuccess(o.Client, nn)
-				return nil, "", err
+			if strings.HasPrefix(o.firstLine, "CONNECT") {
+				if _, err := o.Client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+					return nil, "", err
+				}
+			} else {
+				firstLine := strings.ReplaceAll(o.firstLine, uri.Scheme+"://"+uri.Host, "")
+				if _, err := nn.Write([]byte(firstLine + header)); err != nil {
+					return nil, "", err
+				}
 			}
+			o.PI.OnSuccess(o.Client, nn)
 			return nn, "", nil
 		}
 

@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// client <=> proxy1 <=> proxy2 <=> ... <=> server
+// client <=> proxy1[socks5/http] <=> proxy2[socks5/http] <=> ... <=> server
 
 // proxy1 一级代理
 type proxy1 struct{}
@@ -148,6 +148,7 @@ func Test_HTTPPProxy(t *testing.T) {
 
 	// 代理请求
 	req := func(proxyURL, navURL string) {
+		t.Log(proxyURL, navURL)
 		urlProxy, _ := (&url.URL{}).Parse(proxyURL)
 		var transport *http.Transport
 		if urlProxy.Scheme == "http" {
@@ -165,12 +166,12 @@ func Test_HTTPPProxy(t *testing.T) {
 				t.Fatal("can't connect to the proxy:", err)
 			}
 			transport = &http.Transport{Dial: dialer.Dial}
+			transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		} else {
 			t.Fatal("unknown proxy proto")
 		}
 
-		client := &http.Client{}
-		client.Transport = transport
+		client := &http.Client{Transport: transport}
 		resp, err := client.Get(navURL) // do request through proxy
 		if err != nil {
 			t.Fatal(err)
@@ -190,35 +191,36 @@ func Test_HTTPPProxy(t *testing.T) {
 	{ // 测试二级代理 http <=> http
 		fmt.Println("测试二级代理 http <=> http")
 		req("http://hh1:hh1@127.0.0.1:8081", "http://127.0.0.1:8080")
+		req("http://hh1:hh1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试二级代理 socks5 <=> socks5
 		fmt.Println("测试二级代理 socks5 <=> socks5")
 		req("socks5://ss1:ss1@127.0.0.1:8081", "http://127.0.0.1:8080")
+		req("socks5://ss1:ss1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试二级代理 http <=> socks5
 		fmt.Println("测试二级代理 http <=> socks5")
 		req("http://hs1:hs1@127.0.0.1:8081", "http://127.0.0.1:8080")
+		req("http://hs1:hs1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试二级代理 socks5 <=> http
 		fmt.Println("测试二级代理 socks5 <=> http")
 		req("socks5://sh1:sh1@127.0.0.1:8081", "http://127.0.0.1:8080")
+		req("socks5://sh1:sh1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试直连HTTP
 		fmt.Println("测试直连HTTP")
 		req("http://x:y@127.0.0.1:8081", "http://127.0.0.1:8080")
+		req("http://x:y@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试直连Socks5
 		fmt.Println("测试直连Socks5")
 		req("socks5://x:y@127.0.0.1:8081", "http://127.0.0.1:8080")
-	}
-
-	{ // 测试HTTPS
-		fmt.Println("测试HTTPS")
-		req("http://x:y@127.0.0.1:8081", "https://127.0.0.1:8443")
+		req("socks5://x:y@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 }
