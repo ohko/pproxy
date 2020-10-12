@@ -1,4 +1,4 @@
-package httppproxy
+package pproxy
 
 import (
 	"crypto/tls"
@@ -74,8 +74,8 @@ func (o *proxy2) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
 	log.Println("OnSuccess2:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String())
 }
 
-// go test HTTPPProxy -run Test_HTTPPProxy -v -count=1
-func Test_HTTPPProxy(t *testing.T) {
+// go test pproxy -run Test_PPProxy -v -count=1
+func Test_PPProxy(t *testing.T) {
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetFlags(log.Flags() | log.Lshortfile)
@@ -105,7 +105,7 @@ func Test_HTTPPProxy(t *testing.T) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 
-				newConn, err := (&HTTPPProxy{Client: conn, PI: &proxy2{}}).Handshake()
+				newConn, err := (&PProxy{Client: conn, PI: &proxy2{}}).Handshake()
 				if err != nil {
 					log.Println(err)
 					return
@@ -132,7 +132,7 @@ func Test_HTTPPProxy(t *testing.T) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 
-				newConn, err := (&HTTPPProxy{Client: conn, PI: &proxy1{}}).Handshake()
+				newConn, err := (&PProxy{Client: conn, PI: &proxy1{}}).Handshake()
 				if err != nil {
 					log.Println(err)
 					return

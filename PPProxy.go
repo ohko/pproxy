@@ -1,4 +1,4 @@
-package httppproxy
+package pproxy
 
 import (
 	"bufio"
@@ -22,8 +22,8 @@ type ProxyInterface interface {
 	OnSuccess(clientConn net.Conn, serverConn net.Conn)
 }
 
-// HTTPPProxy 中继HTTP代理
-type HTTPPProxy struct {
+// PProxy 中继HTTP代理
+type PProxy struct {
 	Client net.Conn
 	PI     ProxyInterface
 
@@ -32,7 +32,7 @@ type HTTPPProxy struct {
 }
 
 // Handshake ...
-func (o *HTTPPProxy) Handshake() (net.Conn, error) {
+func (o *PProxy) Handshake() (net.Conn, error) {
 	// check socks5/http
 	prefix := make([]byte, 1)
 	if _, err := o.Client.Read(prefix); err != nil {
@@ -49,7 +49,7 @@ func (o *HTTPPProxy) Handshake() (net.Conn, error) {
 }
 
 // hand socks5 proxy
-func (o *HTTPPProxy) handshakeSocks5(prefix []byte) (net.Conn, error) {
+func (o *PProxy) handshakeSocks5(prefix []byte) (net.Conn, error) {
 	var b [1024]byte
 	copy(b[:], prefix)
 
@@ -187,7 +187,7 @@ func (o *HTTPPProxy) handshakeSocks5(prefix []byte) (net.Conn, error) {
 }
 
 // socks5二级代理
-func (o *HTTPPProxy) socks5Level2(newAuth string) (net.Conn, error) {
+func (o *PProxy) socks5Level2(newAuth string) (net.Conn, error) {
 	var b [1024]byte
 
 	// log.Println("二级代理:", newAuth)
@@ -244,7 +244,7 @@ func (o *HTTPPProxy) socks5Level2(newAuth string) (net.Conn, error) {
 }
 
 // hand http proxy
-func (o *HTTPPProxy) handshakeHTTP(prefix []byte) (net.Conn, error) {
+func (o *PProxy) handshakeHTTP(prefix []byte) (net.Conn, error) {
 	// read first line
 	o.reader = bufio.NewReader(o.Client)
 	l, err := o.reader.ReadString('\n')
@@ -268,7 +268,7 @@ func (o *HTTPPProxy) handshakeHTTP(prefix []byte) (net.Conn, error) {
 }
 
 // CONNECT
-func (o *HTTPPProxy) typeConnect(firstLineArr []string) (net.Conn, error) {
+func (o *PProxy) typeConnect(firstLineArr []string) (net.Conn, error) {
 	// auth
 	newConn, _, err := o.checkAuth(&url.URL{Host: firstLineArr[1]})
 	if err != nil {
@@ -292,7 +292,7 @@ func (o *HTTPPProxy) typeConnect(firstLineArr []string) (net.Conn, error) {
 }
 
 // GET/POST/PUT/...
-func (o *HTTPPProxy) typeOther(firstLineArr []string) (net.Conn, error) {
+func (o *PProxy) typeOther(firstLineArr []string) (net.Conn, error) {
 	u, err := url.Parse(firstLineArr[1])
 	if err != nil {
 		return nil, err
@@ -326,7 +326,7 @@ func (o *HTTPPProxy) typeOther(firstLineArr []string) (net.Conn, error) {
 }
 
 // return newConn, header, error
-func (o *HTTPPProxy) checkAuth(uri *url.URL) (net.Conn, string, error) {
+func (o *PProxy) checkAuth(uri *url.URL) (net.Conn, string, error) {
 	originHeader := ""
 	header := ""
 	authLine := ""
@@ -438,7 +438,7 @@ func (o *HTTPPProxy) checkAuth(uri *url.URL) (net.Conn, string, error) {
 }
 
 // HTTP二级代理
-func (o *HTTPPProxy) httpLevel2(originHeader, authLine, newAuth string) (net.Conn, string, error) {
+func (o *PProxy) httpLevel2(originHeader, authLine, newAuth string) (net.Conn, string, error) {
 	u, err := url.Parse(newAuth)
 	if err != nil {
 		return nil, "", err
@@ -463,7 +463,7 @@ func (o *HTTPPProxy) httpLevel2(originHeader, authLine, newAuth string) (net.Con
 }
 
 // 二级代理
-func (o *HTTPPProxy) level2(originHeader, authLine, newAuth string) (net.Conn, string, error) {
+func (o *PProxy) level2(originHeader, authLine, newAuth string) (net.Conn, string, error) {
 	if strings.HasPrefix(newAuth, "socks5") {
 		n, err := o.socks5Level2(newAuth)
 		return n, "", err

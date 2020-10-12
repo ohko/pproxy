@@ -1,4 +1,4 @@
-module HTTPPProxy
+module pproxy
 
 go 1.15
 
