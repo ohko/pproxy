@@ -1,7 +1,7 @@
 # HTTPPProxy
 
 ```
-client <=> proxy1 <=> proxy2 <=> ... <=> server
+client <=> proxy1[socks5/http] <=> proxy2[socks5/http] <=> ... <=> server
 ```
 
 http proxy level1 and level2 ...
