@@ -28,7 +28,7 @@ type proxy1 struct{}
 // OnAuth ...
 func (o *proxy1) OnAuth(user, password string) (string, error) {
 	sumChk |= 1
-	log.Println("OnAuth1:", user, password)
+	log.Output(2, fmt.Sprintln("OnAuth1:", user, password))
 	// 二级HTTP代理
 	if user == "hh1" && password == "hh1" {
 		return "http://h2:h2@127.0.0.1:8082", nil
@@ -55,7 +55,7 @@ func (o *proxy1) OnAuth(user, password string) (string, error) {
 // OnSuccess ...
 func (o *proxy1) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
 	sumChk |= 2
-	log.Println("OnSuccess1:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String())
+	log.Output(2, fmt.Sprintln("OnSuccess1:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String()))
 }
 
 // proxy2 二级代理
@@ -64,7 +64,7 @@ type proxy2 struct{}
 // OnAuth ...
 func (o *proxy2) OnAuth(user, password string) (string, error) {
 	sumChk |= 4
-	log.Println("OnAuth2:", user, password)
+	log.Output(2, fmt.Sprintln("OnAuth2:", user, password))
 	if user == "h2" && password == "h2" {
 		return "", nil
 	}
@@ -77,7 +77,7 @@ func (o *proxy2) OnAuth(user, password string) (string, error) {
 // OnSuccess ...
 func (o *proxy2) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
 	sumChk |= 8
-	log.Println("OnSuccess2:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String())
+	log.Output(2, fmt.Sprintln("OnSuccess2:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String()))
 }
 
 // go test pproxy -run Test_PPProxy -v -count=1
@@ -86,11 +86,10 @@ func Test_PPProxy(t *testing.T) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetFlags(log.Flags() | log.Lshortfile)
 
-	// log.Println(hst.MakeTLSFile("123", "123", "123", "./", "127.0.0.1:8443", "ohko@qq.com"))
-
 	go func() { // 启动服务器
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(r.RemoteAddr))
+			r.ParseForm()
+			w.Write([]byte(r.FormValue("a") + "_" + r.FormValue("b") + "_" + r.RemoteAddr))
 		})
 		go http.ListenAndServe(":8080", nil)
 		log.Println(http.ListenAndServeTLS(":8443", "ssl/ssl.crt", "ssl/ssl.key", nil))
@@ -151,6 +150,7 @@ func Test_PPProxy(t *testing.T) {
 	}()
 
 	time.Sleep(time.Second)
+	// <-make(chan bool, 1)
 
 	// 代理请求
 	req := func(chk int, proxyURL, navURL string) {
@@ -179,7 +179,9 @@ func Test_PPProxy(t *testing.T) {
 		}
 
 		client := &http.Client{Transport: transport}
-		resp, err := client.Get(navURL) // do request through proxy
+		resp, err := client.Post(navURL+"?a=1",
+			"application/x-www-form-urlencoded",
+			strings.NewReader("b=2"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -190,47 +192,47 @@ func Test_PPProxy(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if !strings.HasPrefix(string(bs), "127.0.0.1:") {
+		if !strings.HasPrefix(string(bs), "1_2_127.0.0.1:") {
 			t.Fatal(string(bs))
 		}
 
 		if chk != sumChk {
-			t.Fatalf("chk error: want:%d give:%d", sumChk, chk)
+			t.Fatalf("chk error: want:%d give:%d", chk, sumChk)
 		}
 	}
 
 	{ // 测试二级代理 http <=> http
-		fmt.Println("测试二级代理 http <=> http")
+		t.Log("=== 测试二级代理 http <=> http ===")
 		req(1|2|4|8, "http://hh1:hh1@127.0.0.1:8081", "http://127.0.0.1:8080")
 		req(1|2|4|8, "http://hh1:hh1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试二级代理 socks5 <=> socks5
-		fmt.Println("测试二级代理 socks5 <=> socks5")
+		t.Log("=== 测试二级代理 socks5 <=> socks5 ===")
 		req(1|2|4|8, "socks5://ss1:ss1@127.0.0.1:8081", "http://127.0.0.1:8080")
 		req(1|2|4|8, "socks5://ss1:ss1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试二级代理 http <=> socks5
-		fmt.Println("测试二级代理 http <=> socks5")
+		t.Log("=== 测试二级代理 http <=> socks5 ===")
 		req(1|2|4|8, "http://hs1:hs1@127.0.0.1:8081", "http://127.0.0.1:8080")
 		req(1|2|4|8, "http://hs1:hs1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试二级代理 socks5 <=> http
-		fmt.Println("测试二级代理 socks5 <=> http")
+		t.Log("=== 测试二级代理 socks5 <=> http ===")
 		req(1|2|4|8, "socks5://sh1:sh1@127.0.0.1:8081", "http://127.0.0.1:8080")
 		req(1|2|4|8, "socks5://sh1:sh1@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试直连HTTP
-		fmt.Println("测试直连HTTP")
+		t.Log("=== 测试直连HTTP ===")
 		req(1|2, "http://x:y@127.0.0.1:8081", "http://127.0.0.1:8080")
 		req(1|2, "http://x:y@127.0.0.1:8081", "https://127.0.0.1:8443")
 	}
 
 	{ // 测试直连Socks5
-		fmt.Println("测试直连Socks5")
+		t.Log("=== 测试直连Socks5 ===")
 		req(4|8, "http://h2:h2@127.0.0.1:8082", "http://127.0.0.1:8080")
 		req(4|8, "socks5://s2:s2@127.0.0.1:8082", "https://127.0.0.1:8443")
 	}
