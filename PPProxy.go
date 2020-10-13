@@ -99,7 +99,7 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (net.Conn, error) {
 	// 二级代理
 	if newAuth != "" && strings.HasPrefix(newAuth, "socks5") {
 		nn, _, err := o.level2("", "", newAuth)
-		if err != nil {
+		if err == nil {
 			o.PI.OnSuccess(o.Client, nn)
 		}
 		return nn, err
