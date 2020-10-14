@@ -169,8 +169,7 @@ func (o *PProxy) checkAuth(info *httpProxyInfo) (conn net.Conn, err error) {
 			return
 		}
 
-		if strings.HasPrefix(newAuth, "socks5") &&
-			strings.HasPrefix(info.firstLine, "CONNECT") {
+		if info.level2 == "socks5" && info.method == "CONNECT" {
 			if _, err = o.Client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
 				return
 			}
@@ -182,6 +181,8 @@ func (o *PProxy) checkAuth(info *httpProxyInfo) (conn net.Conn, err error) {
 
 // HTTP二级代理
 func (o *PProxy) httpLevel2(info *httpProxyInfo, newAuth string) (conn net.Conn, err error) {
+	info.level2 = "http"
+
 	var u *url.URL
 	if u, err = url.Parse(newAuth); err != nil {
 		return
@@ -209,22 +210,26 @@ func (o *PProxy) httpLevel2(info *httpProxyInfo, newAuth string) (conn net.Conn,
 	}
 
 	if info.method == "CONNECT" {
-		var rtn string
-		var line string
-		reader := bufio.NewReader(conn)
+		buffer := make([]byte, 0, 0x100)
+		b := make([]byte, 1)
 		for {
-			if line, err = reader.ReadString('\n'); err != nil {
+			if _, err = conn.Read(b); err != nil {
 				return
 			}
-			rtn += line
+			buffer = append(buffer, b...)
+			if b[0] == '\n' && len(buffer) > 4 {
+				if bytes.HasSuffix(buffer, []byte("\r\n\r\n")) {
+					break
+				}
+			}
 
-			// end
-			if len(strings.TrimSpace(line)) == 0 {
-				break
+			if len(buffer) >= cap(buffer) {
+				return nil, errors.New(string(buffer))
 			}
 		}
-		if !strings.Contains(rtn, "200 Connection Established") {
-			return nil, errors.New(rtn)
+
+		if !bytes.Contains(buffer, []byte("HTTP/1.1 200 Connection Established")) {
+			return nil, errors.New(string(buffer))
 		}
 	}
 

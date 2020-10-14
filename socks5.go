@@ -131,26 +131,15 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 
 	// 二级代理
 	if newAuth != "" {
-		if strings.HasPrefix(newAuth, "socks5") {
-			if conn, err = o.level2(&httpProxyInfo{uri: addr}, newAuth); err == nil {
-				o.Client.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-				o.PI.OnSuccess(o.Client, conn)
-			}
-			return
-		}
+		info := &httpProxyInfo{uri: addr}
 
 		if strings.HasPrefix(newAuth, "http") {
-			if conn, err = o.level2(&httpProxyInfo{
-				originHeader: "CONNECT " + addr + " HTTP/1.1\r\nHost: " + addr + "\r\nProxy-Authorization: Basic eDp5\r\nUser-Agengt: pproxy\r\n\r\n",
-				authLine:     "Proxy-Authorization: Basic eDp5\r\n",
-				uri:          addr}, newAuth); err == nil {
-				o.PI.OnSuccess(o.Client, conn)
-			}
-			if _, err = conn.Read(b[:]); err != nil {
-				return
-			}
-			o.Client.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-			o.PI.OnSuccess(o.Client, conn)
+			info.originHeader = "CONNECT " + addr + " HTTP/1.1\r\nHost: " + addr + "\r\nProxy-Authorization: Basic eDp5\r\nUser-Agengt: pproxy\r\n\r\n"
+			info.authLine = "Proxy-Authorization: Basic eDp5\r\n"
+			info.method = "CONNECT"
+		}
+
+		if conn, err = o.level2(info, newAuth); err != nil {
 			return
 		}
 	}
@@ -177,7 +166,9 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 }
 
 // socks5二级代理
-func (o *PProxy) socks5Level2(newAuth, addr string) (conn net.Conn, err error) {
+func (o *PProxy) socks5Level2(info *httpProxyInfo, newAuth string) (conn net.Conn, err error) {
+	info.level2 = "socks5"
+
 	b := make([]byte, 0x100)
 	var u *url.URL
 
@@ -233,7 +224,7 @@ func (o *PProxy) socks5Level2(newAuth, addr string) (conn net.Conn, err error) {
 
 	// 域名方式代理
 	port := 0
-	up := strings.Split(addr, ":")
+	up := strings.Split(info.uri, ":")
 	if port, err = strconv.Atoi(up[1]); err != nil {
 		return
 	}

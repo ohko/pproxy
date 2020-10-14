@@ -1,6 +1,7 @@
 package pproxy
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"errors"
 	"flag"
@@ -179,9 +180,10 @@ func Test_PPProxy(t *testing.T) {
 		}
 
 		client := &http.Client{Transport: transport}
-		resp, err := client.Post(navURL+"?a=1",
+		a, b := makeGUID(), makeGUID()
+		resp, err := client.Post(navURL+"?a="+a,
 			"application/x-www-form-urlencoded",
-			strings.NewReader("b=2"))
+			strings.NewReader("b="+b))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -192,7 +194,7 @@ func Test_PPProxy(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if !strings.HasPrefix(string(bs), "1_2_127.0.0.1:") {
+		if !strings.HasPrefix(string(bs), a+"_"+b+"_127.0.0.1:") {
 			t.Fatal(string(bs))
 		}
 
@@ -236,4 +238,12 @@ func Test_PPProxy(t *testing.T) {
 		req(4|8, "http://h2:h2@127.0.0.1:8082", "http://127.0.0.1:8080")
 		req(4|8, "socks5://s2:s2@127.0.0.1:8082", "https://127.0.0.1:8443")
 	}
+}
+
+// makeGUID make GUID
+// "crypto/rand"
+func makeGUID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[8:10], b[6:8], b[4:6], b[10:])
 }

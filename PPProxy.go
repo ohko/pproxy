@@ -42,10 +42,8 @@ func (o *PProxy) Handshake() (conn net.Conn, err error) {
 // 二级代理
 func (o *PProxy) level2(info *httpProxyInfo, newAuth string) (conn net.Conn, err error) {
 	if strings.HasPrefix(newAuth, "socks5") {
-		info.level2 = "socks5"
-		conn, err = o.socks5Level2(newAuth, info.uri)
+		conn, err = o.socks5Level2(info, newAuth)
 	} else if strings.HasPrefix(newAuth, "http") {
-		info.level2 = "http"
 		conn, err = o.httpLevel2(info, newAuth)
 	} else {
 		return nil, errors.New("unknown level2")
