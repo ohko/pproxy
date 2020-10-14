@@ -19,6 +19,9 @@ type ProxyInterface interface {
 type PProxy struct {
 	Client net.Conn
 	PI     ProxyInterface
+
+	DebugRead  func(conn net.Conn, bs []byte)
+	DebugWrite func(conn net.Conn, bs []byte)
 }
 
 // Handshake ...

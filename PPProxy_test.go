@@ -3,6 +3,7 @@ package pproxy
 import (
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -59,6 +60,13 @@ func (o *proxy1) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
 	log.Output(2, fmt.Sprintln("OnSuccess1:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String()))
 }
 
+func (o *proxy1) DebugRead(conn net.Conn, bs []byte) {
+	log.Output(2, fmt.Sprintln("DebugRead1:", conn, "\n"+hex.Dump(bs)))
+}
+func (o *proxy1) DebugWrite(conn net.Conn, bs []byte) {
+	log.Output(2, fmt.Sprintln("DebugWrite1:", conn, "\n"+hex.Dump(bs)))
+}
+
 // proxy2 二级代理
 type proxy2 struct{}
 
@@ -81,11 +89,20 @@ func (o *proxy2) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
 	log.Output(2, fmt.Sprintln("OnSuccess2:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String()))
 }
 
+func (o *proxy2) DebugRead(conn net.Conn, bs []byte) {
+	log.Output(2, fmt.Sprintln("DebugRead2:", conn, "\n"+hex.Dump(bs)))
+}
+func (o *proxy2) DebugWrite(conn net.Conn, bs []byte) {
+	log.Output(2, fmt.Sprintln("DebugWrite2:", conn, "\n"+hex.Dump(bs)))
+}
+
 // go test pproxy -run Test_PPProxy -v -count=1
 func Test_PPProxy(t *testing.T) {
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	log.SetFlags(log.Flags() | log.Lshortfile)
+	log.SetFlags(log.Lshortfile)
+
+	showDebug := false
 
 	go func() { // 启动服务器
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +128,14 @@ func Test_PPProxy(t *testing.T) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 
-				newConn, err := (&PProxy{Client: conn, PI: &proxy2{}}).Handshake()
+				p2 := &proxy2{}
+				pp2 := &PProxy{Client: conn, PI: p2}
+				if showDebug {
+					pp2.DebugRead = p2.DebugRead
+					pp2.DebugWrite = p2.DebugWrite
+				}
+
+				newConn, err := pp2.Handshake()
 				if err != nil {
 					log.Println(err)
 					return
@@ -138,7 +162,14 @@ func Test_PPProxy(t *testing.T) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 
-				newConn, err := (&PProxy{Client: conn, PI: &proxy1{}}).Handshake()
+				p1 := &proxy1{}
+				pp1 := &PProxy{Client: conn, PI: p1}
+				if showDebug {
+					pp1.DebugRead = p1.DebugRead
+					pp1.DebugWrite = p1.DebugWrite
+				}
+
+				newConn, err := pp1.Handshake()
 				if err != nil {
 					log.Println(err)
 					return

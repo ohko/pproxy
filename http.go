@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+// ...
+const (
+	ConnectOK = "HTTP/1.1 200 Connection Established\r\n\r\n"
+)
+
 type httpProxyInfo struct {
 	originHeader string // origin header map
 	activeHeader string // header map
@@ -42,6 +47,9 @@ func (o *PProxy) handshakeHTTP(prefix []byte) (conn net.Conn, err error) {
 				break
 			}
 		}
+	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, buffer)
 	}
 
 	// read first line
@@ -125,11 +133,18 @@ func (o *PProxy) handshakeHTTP(prefix []byte) (conn net.Conn, err error) {
 	}()
 
 	if info.method == "CONNECT" {
-		if _, err = o.Client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+		if o.DebugWrite != nil {
+			o.DebugWrite(o.Client, []byte(ConnectOK))
+		}
+		if _, err = o.Client.Write([]byte(ConnectOK)); err != nil {
 			return
 		}
 	} else if info.level2 != "http" {
-		if _, err = conn.Write([]byte(strings.ReplaceAll(info.activeHeader, info.connectTo, "/"))); err != nil {
+		bs := []byte(strings.ReplaceAll(info.activeHeader, info.connectTo, "/"))
+		if o.DebugWrite != nil {
+			o.DebugWrite(conn, bs)
+		}
+		if _, err = conn.Write(bs); err != nil {
 			return
 		}
 	}
@@ -168,12 +183,6 @@ func (o *PProxy) checkAuth(info *httpProxyInfo) (conn net.Conn, err error) {
 		if conn, err = o.level2(info, newAuth); err != nil {
 			return
 		}
-
-		if info.level2 == "socks5" && info.method == "CONNECT" {
-			if _, err = o.Client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
-				return
-			}
-		}
 	}
 
 	return
@@ -187,9 +196,6 @@ func (o *PProxy) httpLevel2(info *httpProxyInfo, newAuth string) (conn net.Conn,
 	if u, err = url.Parse(newAuth); err != nil {
 		return
 	}
-
-	// replace proxy authorization
-	newAuthLine := "Proxy-Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(u.User.String())) + "\r\n"
 
 	if !strings.Contains(u.Host, ":") {
 		u.Host += ":80"
@@ -205,7 +211,16 @@ func (o *PProxy) httpLevel2(info *httpProxyInfo, newAuth string) (conn net.Conn,
 		}
 	}()
 
-	if _, err = conn.Write([]byte(strings.ReplaceAll(info.originHeader, info.authLine, newAuthLine))); err != nil {
+	body := info.originHeader
+	if info.authLine != "" {
+		// replace proxy authorization
+		newAuthLine := "Proxy-Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(u.User.String())) + "\r\n"
+		body = strings.ReplaceAll(info.originHeader, info.authLine, newAuthLine)
+	}
+	if o.DebugWrite != nil {
+		o.DebugWrite(conn, []byte(body))
+	}
+	if _, err = conn.Write([]byte(body)); err != nil {
 		return
 	}
 
@@ -226,6 +241,9 @@ func (o *PProxy) httpLevel2(info *httpProxyInfo, newAuth string) (conn net.Conn,
 			if len(buffer) >= cap(buffer) {
 				return nil, errors.New(string(buffer))
 			}
+		}
+		if o.DebugRead != nil {
+			o.DebugRead(conn, buffer)
 		}
 
 		if !bytes.Contains(buffer, []byte("HTTP/1.1 200 Connection Established")) {

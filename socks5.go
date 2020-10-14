@@ -24,6 +24,9 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	if err != nil {
 		return
 	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:1])
+	}
 	if b[0] == 0 || b[0] >= 0xff {
 		return nil, errors.New("accept error")
 	}
@@ -31,8 +34,14 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	if _, err = io.ReadFull(o.Client, b[:rlen]); err != nil {
 		return
 	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:rlen])
+	}
 
 	// 服务端:如果socks5代理允许匿名那么就返回05 00两个字节，如果要求验证就返回05 02两个字节。
+	if o.DebugWrite != nil {
+		o.DebugWrite(o.Client, []byte{0x05, 0x02})
+	}
 	if _, err = o.Client.Write([]byte{0x05, 0x02}); err != nil {
 		return
 	}
@@ -48,6 +57,9 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	if _, err = io.ReadFull(o.Client, b[:2]); err != nil {
 		return
 	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:2])
+	}
 	if b[0] != 0x1 {
 		return nil, errors.New("need user and password")
 	}
@@ -56,14 +68,23 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	if _, err = io.ReadFull(o.Client, b[:rlen]); err != nil {
 		return
 	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:rlen])
+	}
 	user := string(b[:rlen])
 	// password
 	if _, err = io.ReadFull(o.Client, b[:1]); err != nil {
 		return
 	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:1])
+	}
 	rlen = int(b[0])
 	if _, err = io.ReadFull(o.Client, b[:rlen]); err != nil {
 		return
+	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:rlen])
 	}
 	password := string(b[:rlen])
 
@@ -74,7 +95,12 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	if err != nil {
 		return
 	}
-	o.Client.Write([]byte{0x01, 0x00})
+	if o.DebugWrite != nil {
+		o.DebugWrite(o.Client, []byte{0x01, 0x00})
+	}
+	if _, err = o.Client.Write([]byte{0x01, 0x00}); err != nil {
+		return
+	}
 
 	// 代理IP: 05 01 00 03 13 77  65 62 2E 73 6F 75 72 63  65 66 6F 72 67 65 2E 6E  65 74 00 16
 	// 1、05固定
@@ -91,8 +117,11 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	// 4、01说明是ip地址
 	// 5、CA 6C 16 05就是202.108.22.5了，百度ip
 	// 6、00 50端口，即为80端口
-	if _, err = o.Client.Read(b[:4]); err != nil {
+	if _, err = io.ReadFull(o.Client, b[:4]); err != nil {
 		return
+	}
+	if o.DebugRead != nil {
+		o.DebugRead(o.Client, b[:4])
 	}
 	if b[0] != 0x5 {
 		return nil, errors.New("proxy command error")
@@ -105,11 +134,17 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 		if err = binary.Read(o.Client, binary.BigEndian, &sip); err != nil {
 			return
 		}
+		if o.DebugRead != nil {
+			o.DebugRead(o.Client, []byte(sip.toAddr()))
+		}
 		addr = sip.toAddr()
 		// log.Printf("IP代理模式: %s", addr)
 	case 0x03: // 域名模式
 		if _, err = io.ReadFull(o.Client, b[:1]); err != nil {
 			return
+		}
+		if o.DebugRead != nil {
+			o.DebugRead(o.Client, b[:1])
 		}
 		rlen = int(b[0])
 		if rlen > 0x80 {
@@ -124,6 +159,9 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 			return
 		}
 		addr = fmt.Sprintf("%s:%d", host, port)
+		if o.DebugRead != nil {
+			o.DebugRead(o.Client, []byte(addr))
+		}
 		// log.Printf("域名要求代理: %s", addr)
 	default: // 未知模式
 		return nil, fmt.Errorf("未知模式")
@@ -157,6 +195,9 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	// 返回成功建立代理: 05 00 00 01 C0 A8  00 08 16 CE共10个字节
 	// 1、05 00 00 01固定的
 	// 2、后面8个字节可以全是00，也可以发送socks5服务器连接远程主机用到的ip地址和端口，比如这里C0 A8 00 08，就是192.168.0.8，16 CE即5838端口，即是socks5服务器用5838端口去连接百度的80端口。
+	if o.DebugWrite != nil {
+		o.DebugWrite(o.Client, []byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+	}
 	if _, err = o.Client.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}); err != nil {
 		return
 	}
@@ -188,11 +229,17 @@ func (o *PProxy) socks5Level2(info *httpProxyInfo, newAuth string) (conn net.Con
 	}()
 
 	// 匿名/登录
+	if o.DebugWrite != nil {
+		o.DebugWrite(conn, []byte{0x5, 0x2, 0x0, 0x2})
+	}
 	if _, err = conn.Write([]byte{0x5, 0x2, 0x0, 0x2}); err != nil {
 		return
 	}
 	if _, err = io.ReadFull(conn, b[:2]); err != nil {
 		return
+	}
+	if o.DebugRead != nil {
+		o.DebugRead(conn, b[:2])
 	}
 	if b[0] != 0x5 {
 		return nil, errors.New("proxy command error")
@@ -210,12 +257,18 @@ func (o *PProxy) socks5Level2(info *httpProxyInfo, newAuth string) (conn net.Con
 		p, _ := u.User.Password()
 		b = append(b, byte(len(p)))
 		b = append(b, []byte(p)...)
+		if o.DebugWrite != nil {
+			o.DebugWrite(conn, b)
+		}
 		if _, err = conn.Write(b); err != nil {
 			return
 		}
 
 		if _, err = io.ReadFull(conn, b[:2]); err != nil {
 			return
+		}
+		if o.DebugRead != nil {
+			o.DebugRead(conn, b[:2])
 		}
 		if b[0] != 0x1 && b[1] != 0 {
 			return nil, errors.New("socks5 login error")
@@ -235,11 +288,17 @@ func (o *PProxy) socks5Level2(info *httpProxyInfo, newAuth string) (conn net.Con
 	bPort := make([]byte, 2)
 	binary.BigEndian.PutUint16(bPort, uint16(port))
 	b = append(b, bPort...)
+	if o.DebugWrite != nil {
+		o.DebugWrite(conn, b)
+	}
 	if _, err = conn.Write(b); err != nil {
 		return
 	}
 	if _, err = io.ReadFull(conn, b[:10]); err != nil {
 		return
+	}
+	if o.DebugRead != nil {
+		o.DebugRead(conn, b[:10])
 	}
 	if b[0] != 0x5 && b[1] != 0x0 && b[2] != 0x0 && b[3] != 0x1 {
 		return nil, errors.New("socks5 server connect error")
