@@ -1,6 +1,18 @@
 # simpleServices
 一个简单的多级代理服务器群管理
 
+```
+             Server
+client1 ---\        /--- proxy3
+client2 ---- proxy1 ---- proxy4
+client3 ---- proxy2 ---- proxy5
+
+server管理 proxy1、proxy2
+client1 <-> proxy1 <-> proxy3 <-> internet
+client2 <-> proxy1 <-> proxy4 <-> internet
+client3 <-> proxy2 <-> proxy5 <-> internet
+```
+
 # 指令
 ```shell
 # 启动主控服务器
@@ -15,6 +27,7 @@
 k格式：user:password
 v格式：http://user:password@host:port
 v格式：socks5://user:password@host:port
+v格式：request:http://host:port/account/request?k=k
 
 # 添加账号
 curl 'http://127.0.0.1:8080/account/add?k=k&v=v'

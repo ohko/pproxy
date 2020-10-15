@@ -3,14 +3,9 @@ package main
 import (
 	"crypto/md5"
 	"crypto/sha256"
-	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
-	"sort"
 	"sync"
 
 	"github.com/ohko/omsg"
@@ -109,122 +104,4 @@ func (o *Server) OnData(conn net.Conn, cmd, ext uint16, data []byte) error {
 // Send 原始数据加密后发送
 func (o *Server) Send(conn net.Conn, cmd, ext uint16, originData []byte) error {
 	return o.msg.Send(conn, cmd, ext, aesCrypt(originData))
-}
-
-func (o *Server) webServer(webPort string) error {
-	// curl 'http://127.0.0.1:8080/account/add?k=k&v=v'
-	http.HandleFunc("/account/add", func(w http.ResponseWriter, r *http.Request) {
-		k := r.FormValue("k")
-		v := r.FormValue("v")
-
-		if k == "" {
-			outJSON(w, 1, "k is empty")
-			return
-		}
-		accounts.Store(k, v)
-		o.msg.SendToAll(cmdAccountAdd, 0, aesCrypt([]byte(k+"\x00"+v)))
-
-		outJSON(w, 0, "ok")
-	})
-
-	// curl 'http://127.0.0.1:8080/account/adds' -d '{"k1":"v1","k2":"v2"}'
-	http.HandleFunc("/account/adds", func(w http.ResponseWriter, r *http.Request) {
-		bs, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			outJSON(w, 1, err.Error())
-			return
-		}
-		defer r.Body.Close()
-
-		fmt.Println(string(bs))
-
-		m := map[string]string{}
-		if err := json.Unmarshal(bs, &m); err != nil {
-			outJSON(w, 1, err.Error())
-			return
-		}
-
-		for k, v := range m {
-			accounts.Store(k, v)
-			o.msg.SendToAll(cmdAccountAdd, 0, aesCrypt([]byte(k+"\x00"+v)))
-		}
-
-		outJSON(w, 0, "ok")
-	})
-
-	// curl 'http://127.0.0.1:8080/account/del?k=k'
-	http.HandleFunc("/account/del", func(w http.ResponseWriter, r *http.Request) {
-		k := r.FormValue("k")
-
-		if k == "" {
-			outJSON(w, 1, "k is empty")
-			return
-		}
-		accounts.Delete(k)
-		o.msg.SendToAll(cmdAccountDel, 0, aesCrypt([]byte(k)))
-		o.msg.SendToAll(cmdAccountDisconnect, 0, aesCrypt([]byte(k)))
-
-		outJSON(w, 0, "ok")
-	})
-
-	// curl 'http://127.0.0.1:8080/account/list'
-	http.HandleFunc("/account/list", func(w http.ResponseWriter, r *http.Request) {
-		kv := []string{}
-		accounts.Range(func(k, v interface{}) bool {
-			kv = append(kv, k.(string)+"\x00"+v.(string))
-			return true
-		})
-		sort.Strings(kv)
-
-		outJSON(w, 0, kv)
-	})
-
-	// curl 'http://127.0.0.1:8080/account/disconnect?k=k'
-	http.HandleFunc("/account/disconnect", func(w http.ResponseWriter, r *http.Request) {
-		k := r.FormValue("k")
-
-		if k == "" {
-			outJSON(w, 1, "k is empty")
-			return
-		}
-
-		o.msg.SendToAll(cmdAccountDisconnect, 0, aesCrypt([]byte(k)))
-
-		outJSON(w, 0, "ok")
-	})
-
-	// curl 'http://127.0.0.1:8080/account/request?k=m:n'
-	http.HandleFunc("/account/request", func(w http.ResponseWriter, r *http.Request) {
-		lServer.Log0Debug("/account/request")
-		outJSON(w, 0, "http://a:b@127.0.0.1:9999")
-	})
-
-	// curl 'http://127.0.0.1:8080/status'
-	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		out := map[string]interface{}{}
-
-		{
-			kv := []string{}
-			accounts.Range(func(k, v interface{}) bool {
-				kv = append(kv, k.(string)+"\x00"+v.(string))
-				return true
-			})
-			sort.Strings(kv)
-			out["accounts"] = kv
-		}
-		{
-			kv := []string{}
-			o.clients.Range(func(k, v interface{}) bool {
-				kv = append(kv, k.(net.Conn).RemoteAddr().String())
-				return true
-			})
-			sort.Strings(kv)
-			out["clients"] = kv
-		}
-
-		outJSON(w, 0, out)
-	})
-
-	lServer.Log4Trace("listen:", webPort)
-	return http.ListenAndServe(webPort, nil)
 }

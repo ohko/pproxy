@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"pproxy"
 	"sort"
 	"strings"
@@ -21,7 +20,7 @@ import (
 
 var (
 	accountCache sync.Map // 账号 u1:p1 => u2:p2
-	requestCache sync.Map // 账号 u1:p1 => u2:p2
+	requestCache sync.Map // 动态账号 u1:p1 => u2:p2
 	userConns    sync.Map // 代理客服端连接 u => conn
 	level2Conns  sync.Map // 代理客户=>二级代理 conn=>level2
 )
@@ -193,12 +192,14 @@ func (o *Client) OnAuth(conn net.Conn, user, password string) (level2 string, er
 		ok bool
 	)
 
+	// 先查动态账号缓存是否存在
 	if l2, ok = requestCache.Load(k); ok {
 		level2 = l2.(string)
 		userConns.Store(k, conn)
 		return
 	}
 
+	// 再查账号是否存在
 	if l2, ok = accountCache.Load(k); ok {
 		level2 = l2.(string)
 
@@ -254,91 +255,4 @@ func (o *Client) OnServerClose(conn net.Conn) {
 		}
 		return true
 	})
-}
-
-func (o *Client) webServer(webPort string) error {
-	// curl 'http://127.0.0.1:8081/status'
-	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		out := map[string]interface{}{}
-
-		{
-			kv := []string{}
-			accountCache.Range(func(k, v interface{}) bool {
-				kv = append(kv, k.(string)+"\x00"+v.(string))
-				return true
-			})
-			sort.Strings(kv)
-			out["accountCache"] = kv
-		}
-		{
-			kv := []string{}
-			userConns.Range(func(k, v interface{}) bool {
-				kv = append(kv, k.(string)+"=>"+v.(net.Conn).RemoteAddr().String())
-				return true
-			})
-			sort.Strings(kv)
-			out["userConns"] = kv
-		}
-		{
-			kv := []string{}
-			level2Conns.Range(func(k, v interface{}) bool {
-				kv = append(kv, k.(net.Conn).RemoteAddr().String()+"=>"+v.(net.Conn).RemoteAddr().String())
-				return true
-			})
-			sort.Strings(kv)
-			out["level2Conns"] = kv
-		}
-
-		outJSON(w, 0, out)
-	})
-
-	lClient.Log4Trace("listen:", webPort)
-	return http.ListenAndServe(webPort, nil)
-}
-
-// ForTestLevel2 ...
-func (o *Client) ForTestLevel2() error {
-	lClient.Log4Trace("listen test level2:", ":9999")
-	s1, err := net.Listen("tcp", ":9999")
-	if err != nil {
-		return err
-	}
-
-	for {
-		conn, err := s1.Accept()
-		if err != nil {
-			return err
-		}
-
-		go func(conn net.Conn) {
-			defer conn.Close()
-
-			pp1 := &pproxy.PProxy{Client: conn, PI: &testLevel2{}}
-
-			newConn, err := pp1.Handshake()
-			if err != nil {
-				lClient.Log2Error(err)
-				return
-			}
-			defer newConn.Close()
-
-			pproxy.CopyHelper(conn, newConn)
-		}(conn)
-	}
-}
-
-type testLevel2 struct{}
-
-// OnAuth ...
-func (o *testLevel2) OnAuth(conn net.Conn, user, password string) (string, error) {
-	lClient.Log0Debug("OnAuth level2:", user, password)
-	if user == "a" && password == "b" {
-		return "", nil
-	}
-	return "", errors.New("user:password check error")
-}
-
-// OnSuccess ...
-func (o *testLevel2) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
-	lClient.Log0Debug("OnSuccess level2:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String())
 }
