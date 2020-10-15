@@ -91,7 +91,7 @@ func (o *PProxy) handshakeSocks5(prefix []byte) (conn net.Conn, err error) {
 	// 服务器验证失败，直接关闭连接即可
 	// 服务器验证成功后，就发送01 00给客户端，后面和匿名代理一样了
 	var newAuth string
-	newAuth, err = o.PI.OnAuth(user, password)
+	newAuth, err = o.PI.OnAuth(o.Client, user, password)
 	if err != nil {
 		return
 	}

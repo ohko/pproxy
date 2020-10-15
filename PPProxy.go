@@ -10,7 +10,7 @@ import (
 // ProxyInterface ...
 type ProxyInterface interface {
 	// OnAuth 账号验证，返回error判断是否有错误，返回string为二级代理地址
-	OnAuth(user, password string) (string, error)
+	OnAuth(conn net.Conn, user, password string) (string, error)
 	// OnSuccess 代理建立成功，返回客户端、代理端连接
 	OnSuccess(clientConn net.Conn, serverConn net.Conn)
 }
@@ -49,7 +49,7 @@ func (o *PProxy) level2(info *httpProxyInfo, newAuth string) (conn net.Conn, err
 	} else if strings.HasPrefix(newAuth, "http") {
 		conn, err = o.httpLevel2(info, newAuth)
 	} else {
-		return nil, errors.New("unknown level2")
+		return nil, errors.New("unknown level2 protocol")
 	}
 
 	return

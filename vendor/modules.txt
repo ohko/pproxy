@@ -1,3 +1,11 @@
+# github.com/ohko/hst v0.0.0-20200820023058-42ce0f4c0653
+## explicit
+# github.com/ohko/logger v0.2.10
+## explicit
+github.com/ohko/logger
+# github.com/ohko/omsg v1.2.2
+## explicit
+github.com/ohko/omsg
 # golang.org/x/net v0.0.0-20201010224723-4f7140c49acb
 ## explicit
 golang.org/x/net/internal/socks

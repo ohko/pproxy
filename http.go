@@ -174,7 +174,7 @@ func (o *PProxy) checkAuth(info *httpProxyInfo) (conn net.Conn, err error) {
 
 	// callback auth and get new proxy setting if need
 	var newAuth string
-	if newAuth, err = o.PI.OnAuth(user, password); err != nil {
+	if newAuth, err = o.PI.OnAuth(o.Client, user, password); err != nil {
 		return
 	}
 
