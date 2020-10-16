@@ -119,7 +119,6 @@ func (o *PProxy) handshakeHTTP(prefix []byte) (conn net.Conn, err error) {
 	if conn, err = o.checkAuth(&info); err != nil {
 		return
 	}
-
 	// Dail
 	if conn == nil {
 		if conn, err = net.Dial("tcp", info.uri); err != nil {
@@ -246,7 +245,9 @@ func (o *PProxy) httpLevel2(info *httpProxyInfo, newAuth string) (conn net.Conn,
 			o.DebugRead(conn, buffer)
 		}
 
-		if !bytes.Contains(buffer, []byte("HTTP/1.1 200 Connection Established")) {
+		// HTTP/1.1 200 OK \r\n\r\n
+		// HTTP/1.1 200 Connection Established \r\n\r\n
+		if !bytes.Contains(buffer, []byte("HTTP/1.1 200")) {
 			return nil, errors.New(string(buffer))
 		}
 	}

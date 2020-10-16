@@ -3,8 +3,10 @@ package main
 import (
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -169,6 +171,8 @@ func (o *Client) Listen() error {
 			defer o.OnClientClose(conn)
 
 			pp1 := &pproxy.PProxy{Client: conn, PI: o}
+			// pp1.DebugRead = o.DebugRead
+			// pp1.DebugWrite = o.DebugWrite
 
 			newConn, err := pp1.Handshake()
 			if err != nil {
@@ -230,6 +234,16 @@ func (o *Client) OnAuth(conn net.Conn, user, password string) (level2 string, er
 func (o *Client) OnSuccess(clientConn net.Conn, serverConn net.Conn) {
 	level2Conns.Store(clientConn, serverConn)
 	lClient.Log0Debug("OnSuccess:", clientConn.RemoteAddr().String(), serverConn.RemoteAddr().String())
+}
+
+// DebugRead ...
+func (o *Client) DebugRead(conn net.Conn, bs []byte) {
+	log.Output(2, fmt.Sprintln("DebugRead:", conn, "\n"+hex.Dump(bs)))
+}
+
+// DebugWrite ...
+func (o *Client) DebugWrite(conn net.Conn, bs []byte) {
+	log.Output(2, fmt.Sprintln("DebugWrite:", conn, "\n"+hex.Dump(bs)))
 }
 
 // OnClientClose ...
