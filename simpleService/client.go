@@ -33,16 +33,20 @@ type Client struct {
 	serverPort        string
 	proxyPort         string
 	clientWebPort     string
+	clientLogPort     string
 	crc               bool
 	localServers      sync.Map // map[浏览器IP:Port + 本地服务IP:Port]本地服务连接
 	localServersCount int64    // 连接数
 }
 
 // Start 启动客户端
-func (o *Client) Start(key, serverPort, proxyPort, clientWebPort string, crc bool) (err error) {
+func (o *Client) Start(key, serverPort, proxyPort, clientWebPort, clientLogPort string, crc bool) (err error) {
 	lClient.SetFlags(log.Lshortfile | log.Ldate | log.Ltime)
 	lClient.SetPrefix("C")
 	lClient.SetColor(true)
+	if clientLogPort != "" {
+		go lClient.Listen(clientLogPort)
+	}
 	o.serverPort, o.proxyPort, o.clientWebPort, o.crc = serverPort, proxyPort, clientWebPort, crc
 
 	// setup AES

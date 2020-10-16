@@ -35,6 +35,7 @@ var (
 	proxyPort     = flag.String("l", ":8082", "代理端口")
 	serverWebPort = flag.String("ss", ":8080", "服务器HTTP端口")
 	clientWebPort = flag.String("cs", ":8081", "客户端HTTP端口")
+	clientLogPort = flag.String("cslog", ":8083", "客户端日志端口")
 	key           = flag.String("key", "20201015", "密钥，留空不启用AES加密")
 	crc           = flag.Bool("crc", false, "是否启动crc校验数据")
 
@@ -59,7 +60,7 @@ func main() {
 		}
 	} else if *serverPort != "" {
 		o := &Client{}
-		if err := o.Start(*key, *serverPort, *proxyPort, *clientWebPort, *crc); err != nil {
+		if err := o.Start(*key, *serverPort, *proxyPort, *clientWebPort, *clientLogPort, *crc); err != nil {
 			log.Fatal(err)
 		}
 	}
