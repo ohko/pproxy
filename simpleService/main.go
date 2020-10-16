@@ -14,7 +14,9 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/ohko/dd"
 	"github.com/ohko/logger"
 )
 
@@ -44,6 +46,8 @@ var (
 )
 
 func main() {
+	dd.Daemon(true, true, time.Second*3)
+
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetFlags(log.Flags() | log.Lshortfile)
@@ -65,8 +69,8 @@ func main() {
 
 // WaitCtrlC 捕捉Ctrl+C
 func WaitCtrlC() {
-	c := make(chan os.Signal)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-c
 }
 

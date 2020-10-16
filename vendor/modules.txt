@@ -1,5 +1,6 @@
-# github.com/ohko/hst v0.0.0-20200820023058-42ce0f4c0653
+# github.com/ohko/dd v0.0.0-20201016054529-4871d2c0392e
 ## explicit
+github.com/ohko/dd
 # github.com/ohko/logger v0.2.10
 ## explicit
 github.com/ohko/logger
