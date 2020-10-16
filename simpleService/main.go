@@ -130,8 +130,8 @@ func aesCrypt(data []byte) []byte {
 }
 
 type msg struct {
-	No   int
-	Data interface{}
+	No   int         `json:"no"`
+	Data interface{} `json:"data"`
 }
 
 func (o *msg) Encode() ([]byte, error) {
