@@ -1,9 +1,3 @@
-github.com/ohko/dd v0.0.0-20180309080102-49a53d1c1074 h1:wlc2ZrMd0xn0kBUodoL/5LYIYmvd7LjFVEYaHdZSVNo=
-github.com/ohko/dd v0.0.0-20180309080102-49a53d1c1074/go.mod h1:HX+W8jKvtJoH5p8gYRofJorfgLP2TqpW52WS0Aprr2s=
-github.com/ohko/dd v0.0.0-20201016053115-5e27d2a1e0b5 h1:M1Bo3P/cdoR+sj9zIEY0wYpyPDrLw1DMYyFTUcm1NbA=
-github.com/ohko/dd v0.0.0-20201016053115-5e27d2a1e0b5/go.mod h1:HX+W8jKvtJoH5p8gYRofJorfgLP2TqpW52WS0Aprr2s=
-github.com/ohko/dd v0.0.0-20201016054255-1b280e27d427 h1:TvSo2qDc4hv6sXaCkswf24gNmwOWuur/ME0OtHTe5Ws=
-github.com/ohko/dd v0.0.0-20201016054255-1b280e27d427/go.mod h1:HX+W8jKvtJoH5p8gYRofJorfgLP2TqpW52WS0Aprr2s=
 github.com/ohko/dd v0.0.0-20201016054529-4871d2c0392e h1:iNbbSz3yvDBrAa5xRr4oykEro3Vuex3nRcTiaJ364BM=
 github.com/ohko/dd v0.0.0-20201016054529-4871d2c0392e/go.mod h1:HX+W8jKvtJoH5p8gYRofJorfgLP2TqpW52WS0Aprr2s=
 github.com/ohko/logger v0.2.10 h1:J6rezEVFFzK/udo6se3b1G1+URHcTvn1DKVuzgcNLu4=
